@@ -122,12 +122,12 @@ let rec apply_subst (s : subst) (t : ty) : ty =
         TyTuple (List.map (apply_subst s) ts)
 
 
-let apply_subst_scheme (Forall (tvs, t)) s = //TO FIX
+let apply_subst_scheme s (Forall (tvs, t)) = //TO FIX ?
     Forall (tvs, apply_subst (List.filter (fun (tv, _) -> not (Set.contains tv tvs)) s) t)
 
 
-let apply_subst_env env sub =
-    List.map (fun (id, schema) -> (id, apply_subst_scheme schema sub)) env
+let apply_subst_env sub env =
+    List.map (fun (id, schema) -> (id, apply_subst_scheme sub schema)) env
 
 let compose_subst sub1 sub2 = 
     let sub2 = List.map (fun (x, t) -> (x, apply_subst sub1 t)) sub2
@@ -211,7 +211,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
     | App (e1, e2) ->
         let (t1, sub1) = typeinfer_expr env e1
-        let (t2, sub2) = typeinfer_expr (apply_subst_env env sub1) e2 
+        let (t2, sub2) = typeinfer_expr (apply_subst_env sub1 env) e2 
         let fresh_tyvar = generate_fresh_tyvar ()
         let sub3 = unify t1 (TyArrow (t2, fresh_tyvar))
         let t3 = apply_subst sub3 fresh_tyvar
@@ -220,21 +220,45 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         (t3, sub4)
 
     | Let (x, tyo, e1, e2) ->
-        let t1, s1 = typeinfer_expr env e1
-        let tvs = freevars_ty t1 - freevars_scheme_env env
-        let sch = Forall (tvs, t1)
-        let t2, s2 = typeinfer_expr ((x, sch) :: env) e2
-        t2, compose_subst s2 s1
+        let (t1, sub1) = typeinfer_expr env e1
+
+        let subo = 
+            match tyo with
+            | None -> []
+            | Some t -> unify t1 t
+
+        let sub1o = compose_subst subo sub1 
+        let sch1 = generalization (apply_subst sub1o t1) env
+        let (t2, sub2) = typeinfer_expr ((x, sch1) :: apply_subst_env sub1o env) e2
+        let sub3 = compose_subst sub2 sub1
+
+        (t2, sub3)
+
+    | LetRec (f, tfo, e1, e2) ->
+        let fresh_schema = Forall (Set.empty, generate_fresh_tyvar ())
+        let (t1, sub1) = typeinfer_expr ((f, fresh_schema) :: env) e1
+        let sch1 = generalization (apply_subst sub1 t1) env
+
+        let subo =
+            match tfo with
+            | None -> []
+            | Some t -> unify t1 t
+
+        let sub1o = compose_subst subo sub1 
+        let (t2, sub2) = typeinfer_expr ((f, sch1) :: apply_subst_env sub1o env) e2
+        let sub3 = compose_subst sub2 sub1
+
+        (t2, sub3)
 
     | IfThenElse (e1, e2, e3o) ->
         let (t1, sub1) = typeinfer_expr env e1
         let sub2 = unify t1 TyBool
         let sub3 = compose_subst sub2 sub1
-        let (t2, sub4) = typeinfer_expr (apply_subst_env env sub3) e2
+        let (t2, sub4) = typeinfer_expr (apply_subst_env sub3 env) e2
         let sub5 = compose_subst sub4 sub3
         let (t3, sub6) = 
             match e3o with
-            | Some e3 -> typeinfer_expr (apply_subst_env env sub5) e3
+            | Some e3 -> typeinfer_expr (apply_subst_env sub5 env) e3
             | None -> (t2, sub5)
         let sub7 = compose_subst sub6 sub5
         let sub8 = unify (apply_subst sub7 t2) (apply_subst sub7 t3)
@@ -245,7 +269,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
     | Tuple es ->
         let f (ts, sub) exp = 
-            let (ti, subi) = typeinfer_expr (apply_subst_env env sub) exp
+            let (ti, subi) = typeinfer_expr (apply_subst_env sub env) exp
             (ts @ [apply_subst subi ti], compose_subst subi sub)
 
         let ts, sub = List.fold f ([], []) es
