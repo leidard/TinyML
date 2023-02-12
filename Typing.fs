@@ -8,8 +8,6 @@ module TinyML.Typing
 open Ast
 
 // basic environment: add builtin operators at will
-//
-
 let gamma0 : scheme env = [
     // int
     ("+", Forall(Set.empty,TyArrow (TyInt, TyArrow (TyInt, TyInt))))
@@ -49,7 +47,7 @@ let type_error fmt = throw_formatted TypeError fmt //SHORCUT definito dal prof p
 
 type subst = (tyvar * ty) list
    
-// Fresh variable generator
+// fresh variable generator
 let mutable fresh_tyvar_counter = 0
 let generate_fresh_tyvar () : ty =
     fresh_tyvar_counter <- fresh_tyvar_counter + 1
@@ -133,7 +131,6 @@ let compose_subst sub1 sub2 =
     let sub2 = List.map (fun (x, t) -> (x, apply_subst sub1 t)) sub2
     sub1 @ sub2
 
-
 // checks if type variable tv2 occurs in type t1
 let rec occurs (tv2: tyvar) (t1 : ty) : bool =
     match t1 with
@@ -142,6 +139,8 @@ let rec occurs (tv2: tyvar) (t1 : ty) : bool =
     | TyArrow (t1, t2) -> occurs tv2 t1 || occurs tv2 t2
     | TyTuple tt -> List.exists (fun t -> occurs tv2 t) tt
 
+
+// ------------------------ UNIFICATION ------------------------
 // TODO implement this
 let rec unify (t1 : ty) (t2 : ty) : subst = 
     match t1, t2 with
@@ -164,6 +163,7 @@ let rec unify (t1 : ty) (t2 : ty) : subst =
     | _ -> type_error "unification error: type  %O and %O cannot be unified" t1 t2
 
 
+// returns the free variables in a type
 let rec freevars_ty (t : ty) =
     match t with
     | TyName s -> Set.empty
@@ -173,19 +173,20 @@ let rec freevars_ty (t : ty) =
 
 let freevars_scheme (Forall (tvs, t)) = freevars_ty t - tvs
 
+// returns the free variables in a scheme env
 let freevars_scheme_env (env: scheme env) =
     List.fold (fun r (_, sch) -> r + freevars_scheme sch) Set.empty env
 
+// generalizes a type into a type scheme
 let generalization (t : ty) (env: scheme env) : scheme =
     let tvs = freevars_ty t - freevars_scheme_env env
     Forall(tvs, t)
 
 
-// from type scheme to type
+// instantiates a type scheme into a type
 let instantiate (Forall (_, t)) = t
 
 // ------------------------ TYPE INFERENCE ------------------------
-// TODO continue implementing this
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     match e with
     | Lit (LInt _) -> TyInt, [] 
@@ -295,7 +296,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
 
 
 
-// type checker
+// ------------------------ TYPE CHECKER ------------------------
 let rec typecheck_expr (env : ty env) (e : expr) : ty =
     match e with
     | Lit (LInt _) -> TyInt
@@ -331,6 +332,18 @@ let rec typecheck_expr (env : ty env) (e : expr) : ty =
         | Some t -> if t <> t1 then type_error "type annotation in let binding of %s is wrong: exptected %s, but got %s" x (pretty_ty t) (pretty_ty t1)
         typecheck_expr ((x, t1) :: env) e2
 
+    | LetRec (f, None, e1, e2) ->
+        unexpected_error "typecheck_expr: unannotated let rec is not supported"
+        
+    | LetRec (f, Some tf, e1, e2) ->
+        let env0 = (f, tf) :: env
+        let t1 = typecheck_expr env0 e1
+        match t1 with
+        | TyArrow _ -> ()
+        | _ -> type_error "let rec is restricted to functions, but got type %s" (pretty_ty t1)
+        if t1 <> tf then type_error "let rec type mismatch: expected %s, but got %s" (pretty_ty tf) (pretty_ty t1)
+        typecheck_expr env0 e2
+
     | IfThenElse (e1, e2, e3o) ->
         let t1 = typecheck_expr env e1
         if t1 <> TyBool then type_error "if condition must be a bool, but got a %s" (pretty_ty t1)
@@ -346,18 +359,6 @@ let rec typecheck_expr (env : ty env) (e : expr) : ty =
 
     | Tuple es ->
         TyTuple (List.map (typecheck_expr env) es)
-
-    | LetRec (f, None, e1, e2) ->
-        unexpected_error "typecheck_expr: unannotated let rec is not supported"
-        
-    | LetRec (f, Some tf, e1, e2) ->
-        let env0 = (f, tf) :: env
-        let t1 = typecheck_expr env0 e1
-        match t1 with
-        | TyArrow _ -> ()
-        | _ -> type_error "let rec is restricted to functions, but got type %s" (pretty_ty t1)
-        if t1 <> tf then type_error "let rec type mismatch: expected %s, but got %s" (pretty_ty tf) (pretty_ty t1)
-        typecheck_expr env0 e2
 
     | BinOp (e1, ("+" | "-" | "/" | "%" | "*" as op), e2) ->
         let t1 = typecheck_expr env e1
