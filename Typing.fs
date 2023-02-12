@@ -66,42 +66,7 @@ let new_fresh_variable () =
         new_fresh_variable_counter <- new_fresh_variable_counter + 1
     variable*)
 
-// TODO implement this FATTO DAL PROF
-(*let rec unify (t1 : ty) (t2 : ty) : subst =
-    match (t1, t2) with
-    | TyName s1, TyName s2 when s1 = s2 -> [] 
-    
-    | TyVar tv, t 
-
-    | t, TyVar tv -> [tv, t] 
-
-    | TyArrow (t1, t2), TyArrow (t3, t4) ->
-        compose_subst (unify t1 t3) (unify t2 t4)
-
-    | TyTuple ts1, TyTuple ts2 when List.length ts1 = List.length ts2 -> 
-        List.fold (fun s (t1, t2) -> compose_subst s (unify t1 t2)) [] (List.zip ts1 ts2)
-        
-    | _ -> type_error "cannot unify types %O and %O" t1 t2 *)
-
 // TODO implement this
-(*and compose_subst (s1 : subst) (s2 : subst) : subst = //s1 @ s2
-    let rec compose_subst_rec acc l1 l2  =
-        match l1 with
-        | [] -> l2
-        | (tyv1, ty1)::ls1 -> 
-            let commontyv = List.tryFind (fun(tyv2, _) -> tyv1 = tyv2) l2
-            match commontyv with
-            | Some (tyv2, ty2) -> 
-                if ty1 <> ty2 
-                then type_error "Substitutions domains must be disjoint: cannot compose (s1: [%O -> %O]) and (s2: [%O -> %O]" tyv1 ty1 tyv2 ty2  
-                else tyv2, unify t2 s1
-            | None -> compose_subst_rec acc ls1 l2
-
-    compose_subst_rec [] s1 s2*)
-
-
-
-// TODO implement this FATTO DAL PROF
 let rec apply_subst (s : subst) (t : ty) : ty = 
     match t with
     | TyName _ -> t
