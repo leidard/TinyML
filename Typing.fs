@@ -88,7 +88,6 @@ let rec apply_subst (s : subst) (t : ty) : ty =
 let apply_subst_scheme s (Forall (tvs, t)) = //TO FIX ?
     Forall (tvs, apply_subst (List.filter (fun (tv, _) -> not (Set.contains tv tvs)) s) t)
 
-
 let apply_subst_env sub env =
     List.map (fun (id, schema) -> (id, apply_subst_scheme sub schema)) env
 
@@ -151,7 +150,8 @@ let generalization (t : ty) (env: scheme env) : scheme =
 
 // instantiates a type scheme into a type, refreshing its polymorphic type variables
 let instantiate (Forall (tvs, t)) : ty = 
-    
+    let sub = List.map (fun tv -> (tv, generate_fresh_tyvar())) (Set.toList tvs)
+    apply_subst sub t
 
 // ------------------------ TYPE INFERENCE ------------------------
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
