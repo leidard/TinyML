@@ -115,7 +115,10 @@ let pretty_tupled p l = flatten p ", " l
 let rec pretty_ty t =
     match t with
     | TyName s -> s
-    | TyArrow (t1, t2) -> sprintf "%s -> %s" (pretty_ty t1) (pretty_ty t2)
+    | TyArrow (t1, t2) -> 
+        match t1 with
+        | TyArrow (_, _) -> sprintf "(%s) -> %s" (pretty_ty t1) (pretty_ty t2)
+        | _ -> sprintf "%s -> %s" (pretty_ty t1) (pretty_ty t2)
     | TyVar n -> sprintf "'%d" n
     | TyTuple ts -> sprintf "(%s)" (pretty_tupled pretty_ty ts)
 
@@ -137,7 +140,10 @@ let rec pretty_expr e =
     | Lambda (x, Some t, e) -> sprintf "fun (%s : %s) -> %s" x (pretty_ty t) (pretty_expr e)
     
     // TODO pattern-match sub-application cases
-    | App (e1, e2) -> sprintf "%s %s" (pretty_expr e1) (pretty_expr e2)
+    | App (e1, e2) ->
+        match e2 with
+        | App (_, _) -> sprintf "%s (%s)" (pretty_expr e1) (pretty_expr e2)
+        | _ -> sprintf "%s %s" (pretty_expr e1) (pretty_expr e2)
 
     | Var x -> x
 
