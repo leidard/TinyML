@@ -32,11 +32,11 @@ let rec eval_expr (env : value env) (e : expr) : value =
     // TODO: test this is ok or fix it
     | LetRec (f, _, e1, e2) -> 
         let v1 = eval_expr env e1
-        let closure = 
+        let rec_closure = 
             match v1 with
             | Closure (venv1, x, e) -> RecClosure (venv1, f, x, e)
             | _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
-        eval_expr ((f, closure)::env) e2
+        eval_expr ((f, rec_closure)::env) e2
         
     | IfThenElse (e1, e2, None) ->
         let v1 = eval_expr env e1
@@ -44,7 +44,6 @@ let rec eval_expr (env : value env) (e : expr) : value =
         | VLit (LBool true) -> eval_expr env e2
         | VLit (LBool false) -> VLit LUnit
         | _ -> unexpected_error "eval_expr: non-boolean in if guard: %s" (pretty_value v1)
-        
 
     | IfThenElse (e1, e2, Some e3) ->
         let v1 = eval_expr env e1

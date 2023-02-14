@@ -120,12 +120,13 @@ let rec unify (t1 : ty) (t2 : ty) : subst =
                       else [(tv , t1)]
 
     | TyArrow (tl1, tr1), TyArrow (tl2, tr2) -> 
-        compose_subst (unify tl1 tl2) (unify tr1 tr2)
+        let sub = unify tl1 tl2
+        compose_subst (unify (apply_subst sub tr1) (apply_subst sub tr2)) sub
 
     | TyTuple ts1, TyTuple ts2 when List.length ts1 = List.length ts2 ->
-        List.fold (fun s (t1, t2) -> compose_subst s (unify t1 t2)) [] (List.zip ts1 ts2) //by il prof
+        List.fold (fun s (t1, t2) -> compose_subst (unify (apply_subst s t1) (apply_subst s t2)) s) [] (List.zip ts1 ts2)
 
-    | _ -> type_error "unification error: type  %O and %O cannot be unified" t1 t2
+    | _ -> type_error "unification error: %O and %O cannot be unified" t1 t2
 
 
 // returns the free variables in a type
@@ -148,8 +149,9 @@ let generalization (t : ty) (env: scheme env) : scheme =
     Forall(tvs, t)
 
 
-// instantiates a type scheme into a type
-let instantiate (Forall (_, t)) = t
+// instantiates a type scheme into a type, refreshing its polymorphic type variables
+let instantiate (Forall (tvs, t)) : ty = 
+    
 
 // ------------------------ TYPE INFERENCE ------------------------
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
@@ -173,15 +175,15 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let (t2, sub1) = typeinfer_expr env e
         let t1 = apply_subst sub1 fresh_tyvar
 
-        (TyArrow(apply_subst sub1 t1, t2), sub1)
+        (TyArrow(t1, t2), sub1)
 
     | App (e1, e2) ->
         let (t1, sub1) = typeinfer_expr env e1
         let (t2, sub2) = typeinfer_expr (apply_subst_env sub1 env) e2 
         let fresh_tyvar = generate_fresh_tyvar ()
-        let sub3 = unify t1 (TyArrow (t2, fresh_tyvar))
+        let sub3 = unify (apply_subst sub2 t1) (TyArrow (t2, fresh_tyvar))
         let t3 = apply_subst sub3 fresh_tyvar
-        let sub4 = compose_subst sub3 sub2
+        let sub4 = compose_subst sub3 (compose_subst sub2 sub1)
 
         (t3, sub4)
 
@@ -194,25 +196,27 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             | Some t -> unify t1 t
 
         let sub1o = compose_subst subo sub1 
-        let sch1 = generalization (apply_subst sub1o t1) env
+        let sch1 = generalization (apply_subst sub1o t1) (apply_subst_env sub1o env)
         let (t2, sub2) = typeinfer_expr ((x, sch1) :: apply_subst_env sub1o env) e2
         let sub3 = compose_subst sub2 sub1
 
         (t2, sub3)
 
     | LetRec (f, tfo, e1, e2) ->
-        let fresh_schema = Forall (Set.empty, generate_fresh_tyvar ())
+        let fresh_tyvar = generate_fresh_tyvar ()
+        let fresh_schema = Forall (Set.empty, fresh_tyvar)
         let (t1, sub1) = typeinfer_expr ((f, fresh_schema) :: env) e1
-        let sch1 = generalization (apply_subst sub1 t1) env
+        let subu = unify t1 (apply_subst sub1 fresh_tyvar)
 
         let subo =
             match tfo with
             | None -> []
-            | Some t -> unify t1 t
+            | Some t -> unify (apply_subst subu t1) t
 
-        let sub1o = compose_subst subo sub1 
+        let sub1o = compose_subst subo (compose_subst subu sub1) 
+        let sch1 = generalization (apply_subst sub1o t1) (apply_subst_env sub1o env)
         let (t2, sub2) = typeinfer_expr ((f, sch1) :: apply_subst_env sub1o env) e2
-        let sub3 = compose_subst sub2 sub1
+        let sub3 = compose_subst sub2 sub1o
 
         (t2, sub3)
 
@@ -225,7 +229,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let (t3, sub6) = 
             match e3o with
             | Some e3 -> typeinfer_expr (apply_subst_env sub5 env) e3
-            | None -> (t2, sub5)
+            | None -> (TyUnit, sub5)
         let sub7 = compose_subst sub6 sub5
         let sub8 = unify (apply_subst sub7 t2) (apply_subst sub7 t3)
         let t = apply_subst sub8 t2
@@ -236,11 +240,11 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     | Tuple es ->
         let f (ts, sub) exp = 
             let (ti, subi) = typeinfer_expr (apply_subst_env sub env) exp
-            (ts @ [apply_subst subi ti], compose_subst subi sub)
+            (ts @ [ti], compose_subst subi sub)
 
         let ts, sub = List.fold f ([], []) es
 
-        (TyTuple ts, sub)
+        (TyTuple (List.map (apply_subst sub) ts), sub)
 
 
     | BinOp (e1, op, e2) ->
