@@ -169,13 +169,18 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         | None -> type_error "type inference error: variable %O is undefined" x
         | Some (_, scheme) -> (instantiate scheme, [])
 
-    | Lambda (x, None, e) -> 
+    | Lambda (x, tyo, e) -> 
         let fresh_tyvar = generate_fresh_tyvar ()
         let env = (x, Forall(Set.empty, fresh_tyvar)) :: env
         let (t2, sub1) = typeinfer_expr env e
         let t1 = apply_subst sub1 fresh_tyvar
 
-        (TyArrow(t1, t2), sub1)
+        let subo =
+            match tyo with
+            | None -> []
+            | Some t -> unify t1 t
+
+        (TyArrow(t1, t2), compose_subst subo sub1)
 
     | App (e1, e2) ->
         let (t1, sub1) = typeinfer_expr env e1
