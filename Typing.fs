@@ -43,7 +43,7 @@ let gamma0 : scheme env = [
     ("not",Forall(Set.empty,TyArrow (TyBool, TyBool)))
 ]
 
-let type_error fmt = throw_formatted TypeError fmt //SHORCUT definito dal prof per sollevare eccezioni
+let type_error fmt = throw_formatted TypeError fmt
 
 type subst = (tyvar * ty) list
    
@@ -53,18 +53,6 @@ let generate_fresh_tyvar () : ty =
     fresh_tyvar_counter <- fresh_tyvar_counter + 1
     TyVar fresh_tyvar_counter
 
- 
-(*let alphabet = "abcdefghijklmnopqrstuvwxyz"
-let mutable new_fresh_variable_counter = 0
-
- 
-let new_fresh_variable () =
-    let variable =
-        let letters = new_fresh_variable_counter / String.length alphabet
-        let letter = alphabet.[new_fresh_variable_counter % String.length alphabet]
-        String.init letters (fun _ -> '\'') + letter
-        new_fresh_variable_counter <- new_fresh_variable_counter + 1
-    variable*)
 
 // TODO implement this
 let rec apply_subst (s : subst) (t : ty) : ty = 
@@ -85,7 +73,7 @@ let rec apply_subst (s : subst) (t : ty) : ty =
         TyTuple (List.map (apply_subst s) ts)
 
 
-let apply_subst_scheme s (Forall (tvs, t)) = //TO FIX ?
+let apply_subst_scheme s (Forall (tvs, t)) = 
     Forall (tvs, apply_subst (List.filter (fun (tv, _) -> not (Set.contains tv tvs)) s) t)
 
 let apply_subst_env sub env =

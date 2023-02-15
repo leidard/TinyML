@@ -112,15 +112,33 @@ let pretty_env p env = sprintf "[%s]" (flatten (fun (x, o) -> sprintf "%s=%s" x 
 // print any tuple given a printer p for its elements
 let pretty_tupled p l = flatten p ", " l
 
-let rec pretty_ty t =
-    match t with
-    | TyName s -> s
-    | TyArrow (t1, t2) -> 
-        match t1 with
-        | TyArrow (_, _) -> sprintf "(%s) -> %s" (pretty_ty t1) (pretty_ty t2)
-        | _ -> sprintf "%s -> %s" (pretty_ty t1) (pretty_ty t2)
-    | TyVar n -> sprintf "'%d" n
-    | TyTuple ts -> sprintf "(%s)" (pretty_tupled pretty_ty ts)
+let getLetterFromIndex i =
+    char (i + int 'a')
+
+let pretty_ty t =
+    let map_free_vars = Map.empty<tyvar, char> //Mappa tyvar -> lettera
+
+    let rec pretty_ty_rec map_free_vars t =
+        match t with
+        | TyName s -> s
+        | TyArrow (t1, t2) -> 
+            match t1 with
+            | TyArrow (_, _) -> sprintf "(%s) -> %s" (pretty_ty_rec map_free_vars t1) (pretty_ty_rec map_free_vars t2)
+            | _ -> sprintf "%s -> %s" (pretty_ty_rec map_free_vars t1) (pretty_ty_rec map_free_vars t2)
+        | TyVar n -> 
+            let res = Map.tryFind n map_free_vars
+            match res with
+            | None -> 
+                let letter = getLetterFromIndex (Map.count map_free_vars)
+                let new_map_free_vars = Map.add n letter map_free_vars
+                pretty_ty_rec new_map_free_vars t
+            | Some letter -> sprintf "'%c" letter
+
+        | TyTuple ts -> sprintf "(%s)" (pretty_tupled (pretty_ty_rec map_free_vars) ts)
+
+    pretty_ty_rec map_free_vars t
+    
+
 
 let pretty_lit lit =
     match lit with
