@@ -86,8 +86,7 @@ let (|LetRec|_|) = function
     | LetIn ((true, x, tyo, e1), e2) -> Some (x, tyo, e1, e2)
     | _ -> None
 
-type 'a env = (string * 'a) list 
-
+type 'a env = (string * 'a) list  
 
 type value =
     | VLit of lit
@@ -107,38 +106,54 @@ let rec flatten p sep es =
     | [e] -> p e
     | e :: es -> sprintf "%s%s %s" (p e) sep (flatten p sep es)
 
+let rec flatten_map p sep es =
+    match es with
+    | [] -> ""
+    | [e] -> 
+        let str, _ = p e
+        str
+    | e :: es -> 
+        let str, _ = (p e)
+        sprintf "%s%s %s" str sep (flatten_map p sep es)
+
 // print pairs within the given env using p as printer for the elements bound within
 let pretty_env p env = sprintf "[%s]" (flatten (fun (x, o) -> sprintf "%s=%s" x (p o)) ";" env)
 
 // print any tuple given a printer p for its elements
 let pretty_tupled p l = flatten p ", " l
 
-let getLetterFromIndex i =
+let pretty_tupled_map p l = flatten_map p ", " l
+
+// transforms number into char
+let rec getLetterFromIndex i =
     char (i + int 'a')
 
 let pretty_ty t =
-    let map_free_vars = Map.empty<tyvar, char> //Mappa tyvar -> lettera
+    let map_free_vars = Map.empty<tyvar, char>
 
     let rec pretty_ty_rec map_free_vars t =
         match t with
-        | TyName s -> s
+        | TyName s -> s, map_free_vars
         | TyArrow (t1, t2) -> 
+            let t1_str, map1 = pretty_ty_rec map_free_vars t1
+            let t2_str, map2 = pretty_ty_rec map1 t2
             match t1 with
-            | TyArrow (_, _) -> sprintf "(%s) -> %s" (pretty_ty_rec map_free_vars t1) (pretty_ty_rec map_free_vars t2)
-            | _ -> sprintf "%s -> %s" (pretty_ty_rec map_free_vars t1) (pretty_ty_rec map_free_vars t2)
+            | TyArrow (_, _) -> sprintf "(%s) -> %s" t1_str t2_str, map2
+            | _ -> sprintf "%s -> %s" t1_str t2_str, map2
         | TyVar n -> 
             let res = Map.tryFind n map_free_vars
             match res with
             | None -> 
                 let letter = getLetterFromIndex (Map.count map_free_vars)
                 let new_map_free_vars = Map.add n letter map_free_vars
-                pretty_ty_rec new_map_free_vars t
-            | Some letter -> sprintf "'%c" letter
+                sprintf "'%c" letter, new_map_free_vars
+            | Some letter -> sprintf "'%c" letter, map_free_vars
 
-        | TyTuple ts -> sprintf "(%s)" (pretty_tupled (pretty_ty_rec map_free_vars) ts)
+        | TyTuple ts -> 
+            (sprintf "(%s)" (pretty_tupled_map (pretty_ty_rec map_free_vars) ts)), map_free_vars
 
-    pretty_ty_rec map_free_vars t
-    
+    let pretty_ty_str, _ = pretty_ty_rec map_free_vars t
+    pretty_ty_str
 
 
 let pretty_lit lit =

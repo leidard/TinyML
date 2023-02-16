@@ -63,9 +63,8 @@ let rec apply_subst (s : subst) (t : ty) : ty =
         try
             let _, t1 = List.find (fun (tv1, _) -> tv1 = tv) s 
             in 
-                t1 //it produces the type, if the type variable belongs to the domain of theta
-        with KeyNotFoundException -> t //find rises an exception if the key is not present. We therefore return the original untouched type
-        //IMPORTANTE: nel try with (che sarebbe il catch) the things computed must be of the same type!
+                t1
+        with KeyNotFoundException -> t
 
     | TyArrow (t1, t2) -> TyArrow (apply_subst s t1, apply_subst s t2)
 
@@ -82,6 +81,8 @@ let apply_subst_env sub env =
 let compose_subst sub1 sub2 = 
     let sub2 = List.map (fun (x, t) -> (x, apply_subst sub1 t)) sub2
     sub1 @ sub2
+
+
 
 // checks if type variable tv2 occurs in type t1
 let rec occurs (tv2: tyvar) (t1 : ty) : bool =
