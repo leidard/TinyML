@@ -119,7 +119,7 @@ let rec unify (t1 : ty) (t2 : ty) : subst =
 // returns the free variables in a type
 let rec freevars_ty (t : ty) =
     match t with
-    | TyName s -> Set.empty
+    | TyName _ -> Set.empty
     | TyVar tv -> Set.singleton tv
     | TyArrow (t1, t2) -> (freevars_ty t1) + (freevars_ty t2)
     | TyTuple ts -> List.fold (fun r t -> r + freevars_ty t) Set.empty ts

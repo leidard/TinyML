@@ -86,7 +86,8 @@ let (|LetRec|_|) = function
     | LetIn ((true, x, tyo, e1), e2) -> Some (x, tyo, e1, e2)
     | _ -> None
 
-type 'a env = (string * 'a) list  
+type 'a env = (string * 'a) list 
+
 
 type value =
     | VLit of lit
