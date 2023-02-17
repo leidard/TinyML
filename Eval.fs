@@ -29,7 +29,6 @@ let rec eval_expr (env : value env) (e : expr) : value =
         let v1 = eval_expr env e1
         eval_expr ((x, v1) :: env) e2
 
-    // TODO: test this is ok or fix it
     | LetRec (f, _, e1, e2) -> 
         let v1 = eval_expr env e1
         let rec_closure = 
@@ -53,14 +52,12 @@ let rec eval_expr (env : value env) (e : expr) : value =
                        | _ -> unexpected_error "eval_expr: non-boolean in if guard: %s" (pretty_value v1)
                        )
     
-    // TODO finish this implementation
     | Tuple es -> 
         VTuple (List.map (eval_expr env) es)
 
     | BinOp (e1, "+", e2) -> binop_math (+) (+) env e1 e2
     | BinOp (e1, "-", e2) -> binop_math (-) (-) env e1 e2
     | BinOp (e1, "*", e2) -> binop_math ( * ) ( * ) env e1 e2
-    // TODO: implement other binary ops
     | BinOp (e1, "/", e2) -> 
         let v2 = eval_expr env e2
         match v2 with

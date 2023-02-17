@@ -96,9 +96,6 @@ type value =
 
 type interactive = IExpr of expr | IBinding of binding
 
-// pretty printers
-//
-
 // utility function for printing lists by flattening strings with a separator 
 let rec flatten p sep es =
     match es with
@@ -173,7 +170,6 @@ let rec pretty_expr e =
     | Lambda (x, None, e) -> sprintf "fun %s -> %s" x (pretty_expr e)
     | Lambda (x, Some t, e) -> sprintf "fun (%s : %s) -> %s" x (pretty_ty t) (pretty_expr e)
     
-    // TODO pattern-match sub-application cases
     | App (e1, e2) ->
         match e2 with
         | App (_, _) -> sprintf "%s (%s)" (pretty_expr e1) (pretty_expr e2)

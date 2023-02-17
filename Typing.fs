@@ -7,7 +7,7 @@ module TinyML.Typing
 
 open Ast
 
-// basic environment: add builtin operators at will
+// basic environment
 let gamma0 : scheme env = [
     // int
     ("+", Forall(Set.empty,TyArrow (TyInt, TyArrow (TyInt, TyInt))))
@@ -54,7 +54,7 @@ let generate_fresh_tyvar () : ty =
     TyVar fresh_tyvar_counter
 
 
-// TODO implement this
+// applies a substitution to a type, returning the new type 
 let rec apply_subst (s : subst) (t : ty) : ty = 
     match t with
     | TyName _ -> t
@@ -71,13 +71,15 @@ let rec apply_subst (s : subst) (t : ty) : ty =
     | TyTuple ts -> 
         TyTuple (List.map (apply_subst s) ts)
 
-
+// applies a substitution to a type scheme, returning the new type scheme
 let apply_subst_scheme s (Forall (tvs, t)) = 
     Forall (tvs, apply_subst (List.filter (fun (tv, _) -> not (Set.contains tv tvs)) s) t)
 
+// applies a substitution to the environment, returning the new environment
 let apply_subst_env sub env =
     List.map (fun (id, schema) -> (id, apply_subst_scheme sub schema)) env
 
+// composes two substitutions
 let compose_subst sub1 sub2 = 
     let sub2 = List.map (fun (x, t) -> (x, apply_subst sub1 t)) sub2
     sub1 @ sub2
@@ -94,7 +96,7 @@ let rec occurs (tv2: tyvar) (t1 : ty) : bool =
 
 
 // ------------------------ UNIFICATION ------------------------
-// TODO implement this
+// Based on Martelli and Montanari's unification algorithm
 let rec unify (t1 : ty) (t2 : ty) : subst = 
     match t1, t2 with
     | TyName n1, TyName n2 when n1 = n2 -> []
