@@ -21,6 +21,7 @@ let f x y = x + y in f 2
 
 let a b c d e = b c d 2 e 4
 
+let rec f x = if x < 1 then 0 else f (x - 1) in f
 
 
 
